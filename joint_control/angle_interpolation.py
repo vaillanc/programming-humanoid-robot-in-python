@@ -32,7 +32,9 @@ class AngleInterpolationAgent(PIDAgent):
                  sync_mode=True):
         super(AngleInterpolationAgent, self).__init__(simspark_ip, simspark_port, teamname, player_id, sync_mode)
         self.keyframes = ([], [], [])
-
+        self.time_start = -1.0
+        
+	
     def think(self, perception):
         target_joints = self.angle_interpolation(self.keyframes, perception)
         self.target_joints.update(target_joints)
@@ -41,6 +43,42 @@ class AngleInterpolationAgent(PIDAgent):
     def angle_interpolation(self, keyframes, perception):
         target_joints = {}
         # YOUR CODE HERE
+        
+        if self.time_start < 0:
+		self.time_start = perception.time
+
+        current_time = perception.time - self.time_start
+        
+        #print current_time
+        
+        (names,times,keys) = keyframes
+        
+       
+	for name_id in range(len(names)):
+		name = names[name_id] 
+		if name in self.joint_names:
+			for time_id in range(len(times[name_id])):        	
+			
+				if current_time < times[name_id][0]:
+					p0 = (0.0, self.perception.joint[name]) 
+					p3 = (times[name_id][0],keys[name_id][0][0]) #next via point
+					p1 = (p3[0] + keys[name_id][0][1][1],p3[1] + keys[name_id][0][1][2]) 
+					p2 = p1 # for the first curve
+					t = current_time/p3[0] # t must never be bigger than 1 
+					target_joints[name] =  ((1-t)**3)*p0[1] + 3*((1-t)**2)*t*p1[1] + 3*(1-t)*(t**2)*p2[1] + (t**3)*p3[1]
+				
+			
+				#next in btw the points
+				elif (times[name_id][time_id-1] < current_time < times[name_id][time_id]) :
+				
+					p0 = (times[name_id][time_id-1], keys[name_id][time_id-1][0]) 
+					p3 = (times[name_id][time_id], keys[name_id][time_id][0]) #next via point
+					p1 = (p0[0] + keys[name_id][time_id-1][2][1], p0[1] + keys[name_id][time_id-1][2][2]) 
+					p2 = (p3[0] + keys[name_id][time_id][1][1], p3[1] + keys[name_id][time_id][1][2])
+
+					t = (current_time - p0[0])/(p3[0] - p0[0]) # t must never be bigger than 1 
+					target_joints[name]=  ((1-t)**3)*p0[1] + 3*((1-t)**2)*t*p1[1] + 3*(1-t)*(t**2)*p2[1] + (t**3)*p3[1]
+
 
         return target_joints
 
